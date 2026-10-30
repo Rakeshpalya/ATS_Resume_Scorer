@@ -1,6 +1,16 @@
 .DS_Store
 
 __pycache__/
+*.py[cod]
+
+# Local environment and secrets
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+**/.streamlit/secrets.toml
 
 
 # Datasets

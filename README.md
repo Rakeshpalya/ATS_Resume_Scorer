@@ -25,30 +25,38 @@ ATS_SCORER/
 ├── backend/              FastAPI app, NLP services, API routes
 ├── frontend/             Streamlit app, views, components
 ├── jupyter notebooks/    Research and dataset prep (not used at runtime)
-├── ml model/             Exported ML artifacts
 ├── requirements.txt      Combined backend + frontend dependencies
 └── .env.example          Template for environment variables
 ```
 
 ## Setup
 
-### 1. Clone and create a virtual environment
+### 1. Create a virtual environment (Windows PowerShell)
 
-```bash
-git clone <repo-url>
-cd ATS_SCORER
-python -m venv venv
-source venv/bin/activate         # Windows: venv\Scripts\activate
+From the repository root, use Python 3.13 if it is installed. The project dependencies are declared with minimum versions, so pip selects releases compatible with the selected interpreter.
+
+```powershell
+if (-not (Test-Path .venv)) { py -3.13 -m venv .venv }
+.\.venv\Scripts\Activate.ps1
 ```
 
 ### 2. Install dependencies
 
-```bash
-pip install -r requirements.txt
+```powershell
+python -m pip install -r requirements.txt
 python -m spacy download en_core_web_md
+python -m spacy download en_core_web_sm
 ```
 
-WeasyPrint needs system libraries on Linux:
+The backend loads `en_core_web_md` first and falls back to `en_core_web_sm`. Both model packages must be installed for that fallback behavior.
+
+On Windows, `python-magic` also needs the native libmagic library. Its package documentation points Windows users to `python-magic-bin`; install and test it inside the virtual environment if file-type detection reports a missing libmagic DLL:
+
+```powershell
+python -m pip install python-magic-bin==0.4.14
+```
+
+WeasyPrint's Python package may also need native Pango libraries on Windows. Follow the [current WeasyPrint installation instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) and ensure its native libraries are available on `PATH`; installing Python requirements alone may not be sufficient. Linux system library instructions:
 
 ```bash
 # Fedora
@@ -60,25 +68,24 @@ sudo apt install -y libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libffi-dev
 
 ### 3. Configure environment variables
 
-Copy the template and fill in your keys:
+Copy the placeholder template only if `.env` does not already exist, then edit `.env` with your own credentials. Do not replace an existing `.env`:
 
-```bash
-cp .env.example .env
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-You need:
+- `GROQ_API_KEY` is required by the current resume and job-description parsing pipeline.
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` are used for frontend authentication. `SUPABASE_KEY` is used by backend history storage.
+- `SUPABASE_JWT_SECRET` is needed only when verifying legacy HS256 tokens; asymmetric Supabase tokens use the project's JWKS endpoint.
+- `AUTH_REDIRECT_URL` and `SENTENCE_TRANSFORMER_MODEL` are optional overrides.
 
-- A **Supabase** project — grab `SUPABASE_URL`, `SUPABASE_KEY` (service role), and `SUPABASE_ANON_KEY` from Project Settings → API.
-- A **Groq** API key from [console.groq.com](https://console.groq.com).
-- (Optional) Google OAuth set up in the Supabase dashboard if you want Google sign-in.
-
-The Streamlit frontend also reads Supabase config from `frontend/.streamlit/secrets.toml`. Copy `secrets.toml.example` to `secrets.toml` and fill it in.
+The local Streamlit configuration is in `frontend/.streamlit/config.toml`. A `secrets.toml` file is not required for local defaults: Supabase values can come from the project-root `.env`, and the backend URL defaults to `http://localhost:8000`. If you create `frontend/.streamlit/secrets.toml` for overrides, keep it private and do not commit it.
 
 ### 4. Run the backend
 
-From the project root:
+From the project root, with the virtual environment active:
 
-```bash
+```powershell
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -86,9 +93,9 @@ The API is now at `http://localhost:8000`.
 
 ### 5. Run the frontend
 
-In a new terminal (with the venv activated):
+In a new terminal (activate the same virtual environment first):
 
-```bash
+```powershell
 streamlit run frontend/streamlit_app.py
 ```
 
@@ -96,7 +103,6 @@ The app opens at `http://localhost:8501`.
 
 ## Notes for students
 
-- **Never commit `.env` or `secrets.toml`** — they hold API keys. Both are in `.gitignore`; check before you push.
-- The first run downloads the Sentence Transformer model (~80 MB). It's cached afterwards.
-- If you don't have a Groq key yet, the scoring still works — only the LLM suggestions section will be empty.
-- `jupyter notebooks/` and `ml model/` are for experimentation and aren't required to run the app.
+- **Never commit `.env` or `secrets.toml`** — they hold API keys. They are excluded by `.gitignore`; check before you push.
+- The first backend startup downloads the Sentence Transformer model (`all-MiniLM-L6-v2`) if it is not cached.
+- `jupyter notebooks/` is for experimentation and is not required to run the app.

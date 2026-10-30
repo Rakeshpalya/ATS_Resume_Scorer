@@ -108,6 +108,10 @@ async def analyze_resume(
         missing_keywords=result.get('missing_keywords', []),
         matched_keywords=result.get('matched_keywords', []),
         skills=list(result.get('skills', [])[:20]),
+        strengths=result.get('strengths', []),
+        critical_issues=result.get('critical_issues', []),
+        suggestions=result.get('suggestions', []),
+        warnings=warnings,
         jd_comparison=jd_comparison_result,
         interpretation=result.get('interpretation', '')
     )
