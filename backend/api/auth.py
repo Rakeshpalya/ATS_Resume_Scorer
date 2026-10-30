@@ -1,5 +1,6 @@
 import logging
 import jwt
+from dataclasses import dataclass
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -12,6 +13,12 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 _ASYMMETRIC_ALGS = ['ES256', 'RS256']
 
 _jwks_client: jwt.PyJWKClient | None = None
+
+
+@dataclass(frozen=True)
+class AuthenticatedUser:
+    user_id: str
+    access_token: str
 
 
 def _get_jwks_client() -> jwt.PyJWKClient | None:
@@ -28,6 +35,11 @@ def _get_jwks_client() -> jwt.PyJWKClient | None:
 def _verify_token(token: str) -> dict:
     header = jwt.get_unverified_header(token)
     alg = header.get('alg')
+    if not SUPABASE_URL:
+        raise jwt.InvalidTokenError(
+            'SUPABASE_URL not configured — cannot validate token issuer'
+        )
+    issuer = f"{SUPABASE_URL.rstrip('/')}/auth/v1"
 
     if alg in _ASYMMETRIC_ALGS:
         jwks_client = _get_jwks_client()
@@ -41,6 +53,7 @@ def _verify_token(token: str) -> dict:
             signing_key,
             algorithms=_ASYMMETRIC_ALGS,
             audience='authenticated',
+            issuer=issuer,
         )
 
     if alg == 'HS256':
@@ -53,14 +66,15 @@ def _verify_token(token: str) -> dict:
             SUPABASE_JWT_SECRET,
             algorithms=['HS256'],
             audience='authenticated',
+            issuer=issuer,
         )
 
     raise jwt.InvalidTokenError(f'Unsupported JWT algorithm: {alg}')
 
 
-def get_current_user(
-    creds: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-) -> str:
+def _authenticate_credentials(
+    creds: HTTPAuthorizationCredentials | None,
+) -> AuthenticatedUser:
     if creds is None or not creds.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -68,8 +82,8 @@ def get_current_user(
             headers={'WWW-Authenticate': 'Bearer'},
         )
 
-    if not SUPABASE_URL and not SUPABASE_JWT_SECRET:
-        logger.error('Neither SUPABASE_URL (for JWKS) nor SUPABASE_JWT_SECRET configured — cannot verify tokens')
+    if not SUPABASE_URL:
+        logger.error('SUPABASE_URL is not configured — cannot validate token issuer')
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail='Auth not configured on the server',
@@ -84,25 +98,36 @@ def get_current_user(
             headers={'WWW-Authenticate': 'Bearer'},
         )
     except jwt.InvalidTokenError as exc:
+        logger.info("JWT rejected (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f'Invalid token: {exc}',
+            detail='Invalid or expired token.',
             headers={'WWW-Authenticate': 'Bearer'},
-        )
+        ) from exc
     except Exception as exc:
-        # PyJWKClient can raise network errors fetching JWKS; surface them as 401
-        # so a misconfigured backend doesn't look like a 500 to the user.
-        logger.warning(f'JWT verification failed: {exc}')
+        logger.warning("JWT verification failed (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f'Token verification failed: {exc}',
+            detail='Token verification failed.',
             headers={'WWW-Authenticate': 'Bearer'},
-        )
+        ) from exc
 
     user_id = payload.get('sub')
-    if not user_id:
+    if not isinstance(user_id, str) or not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Token missing subject claim',
         )
-    return user_id
+    return AuthenticatedUser(user_id=user_id, access_token=creds.credentials)
+
+
+def get_authenticated_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> AuthenticatedUser:
+    return _authenticate_credentials(creds)
+
+
+def get_current_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    return _authenticate_credentials(creds).user_id

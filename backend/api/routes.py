@@ -3,7 +3,8 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-from backend.api.auth import get_current_user
+from backend.api.auth import AuthenticatedUser, get_authenticated_user, get_current_user
+from backend.core.config import MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB
 from backend.models.schemas import AnalysisResponse, ComponentScores, JDComparison, SkillValidationDetails
 from backend.utils.file_utils import (
     get_default_grammar_results,
@@ -25,34 +26,44 @@ async def analyze_resume(
     request: Request,
     resume: UploadFile = File(..., description='Resume file — PDF or DOCX, max 5 MB'),
     job_description: str = Form('', description='Job description text (optional)'),
-    user_id: str = Depends(get_current_user),
+    authenticated_user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     warnings: List[str] = []
-
+    user_id = authenticated_user.user_id
 
     nlp      = request.app.state.nlp
     embedder = request.app.state.embedder
 
+    from backend.services.resume_parser import (
+        FileParsingError,
+        FileValidationError,
+        parse_resume_file,
+    )
 
     try:
-        file_bytes = await resume.read()
+        file_bytes = await resume.read(MAX_FILE_SIZE_BYTES + 1)
+        if len(file_bytes) > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f'Resume exceeds the maximum upload size of {MAX_FILE_SIZE_MB} MB.',
+            )
         filename   = resume.filename or 'resume'
-
-        from backend.services.resume_parser import (
-            FileParsingError,
-            FileValidationError,
-            parse_resume_file,
-        )
-
         resume_text, _metadata = parse_resume_file(file_bytes, filename)
-        logger.info(f"Parsed '{filename}': {len(resume_text)} chars extracted")
-
-    except Exception as exc:
-        logger.error(f'File parsing failed: {exc}')
+        logger.info("Resume parsed: %s characters extracted", len(resume_text))
+    except HTTPException:
+        raise
+    except (FileParsingError, FileValidationError) as exc:
+        logger.warning("Resume processing rejected (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=422,
-            detail=f'Could not read or parse the resume: {exc}',
-        )
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        logger.error("Resume processing failed (%s)", type(exc).__name__)
+        raise HTTPException(
+            status_code=422,
+            detail='Could not read or parse the resume. Upload a valid PDF or DOCX file.',
+        ) from exc
 
     #Full Analysis Pipeline 
     try:
@@ -65,8 +76,11 @@ async def analyze_resume(
             job_description=job_description
         )
     except Exception as exc:
-        logger.error(f'Full analysis pipeline failed: {exc}')
-        raise HTTPException(status_code=500, detail=f'Analysis pipeline failed: {exc}')
+        logger.error("Full analysis pipeline failed (%s)", type(exc).__name__)
+        raise HTTPException(
+            status_code=502,
+            detail='Resume analysis failed while processing the document. Please retry.',
+        ) from exc
 
     from backend.models.schemas import ComponentScores
 
@@ -119,9 +133,16 @@ async def analyze_resume(
 
     try:
         from backend.database.supabase_db import save_analysis
-        await save_analysis(user_id, filename, result)
+        await save_analysis(
+            user_id,
+            filename,
+            result,
+            authenticated_user.access_token,
+        )
     except Exception as exc:
-        logger.warning(f'History save failed (non-blocking): {exc}')
+        logger.warning("History save failed (%s)", type(exc).__name__)
+        warnings.append('Analysis completed, but the result could not be saved to history.')
+    response.warnings = warnings
 
     return response
 
@@ -135,33 +156,42 @@ async def health_check(request: Request):
     }
 
 @router.get('/history')
-async def get_history(user_id: str = Depends(get_current_user)):
+async def get_history(
+    authenticated_user: AuthenticatedUser = Depends(get_authenticated_user),
+):
     """Return the signed-in user's past analyses (identity comes from the JWT)."""
     from backend.database.supabase_db import get_user_history
     try:
-        return await get_user_history(user_id)
+        return await get_user_history(
+            authenticated_user.user_id,
+            authenticated_user.access_token,
+        )
     except Exception as exc:
-        logger.error(f'History fetch failed: {exc}')
-        raise HTTPException(status_code=500, detail=f'Could not load history: {exc}')
+        logger.error("History fetch failed (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail='Could not load analysis history.') from exc
 
 
 @router.delete('/history/{analysis_id}')
 async def delete_history_entry(
     analysis_id: str,
-    user_id: str = Depends(get_current_user),
+    authenticated_user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     """Delete one analysis from the signed-in user's history."""
     from backend.database.supabase_db import delete_analysis
     try:
-        success = await delete_analysis(analysis_id, user_id)
+        success = await delete_analysis(
+            analysis_id,
+            authenticated_user.user_id,
+            authenticated_user.access_token,
+        )
         if not success:
             raise HTTPException(status_code=404, detail='Analysis not found or not owned by this user.')
         return {'status': 'deleted', 'id': analysis_id}
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f'History delete failed: {exc}')
-        raise HTTPException(status_code=500, detail=f'Could not delete: {exc}')
+        logger.error("History delete failed (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail='Could not delete analysis history entry.') from exc
     
 
 @router.post('/generate-pdf')
@@ -184,22 +214,32 @@ async def generate_pdf(
                 "Content-Disposition": "attachment; filename=ats_report.pdf"
             }
         )
-    except Exception as e:
-        logger.error(f'Failed to generate PDF: {e}')
-        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {e}")
+    except ImportError as exc:
+        logger.warning("PDF generation is unavailable (%s)", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="PDF report generation is unavailable on this system.") from exc
+    except Exception as exc:
+        logger.error("Failed to generate PDF (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Failed to generate PDF report.") from exc
     
 
 @router.get('/history/{analysis_id}/pdf')
 async def generate_history_pdf(
     analysis_id: str,
-    user_id: str = Depends(get_current_user),
+    authenticated_user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     from backend.database.supabase_db import get_user_history
     from backend.services.report_generator import generate_html_reports
     from backend.services.pdf_export import generate_combined_pdf
     from fastapi.responses import Response
 
-    history = await get_user_history(user_id)
+    try:
+        history = await get_user_history(
+            authenticated_user.user_id,
+            authenticated_user.access_token,
+        )
+    except Exception as exc:
+        logger.error("Failed to load analysis history for PDF (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Could not load analysis history.") from exc
     analysis_data = next((item["analysis_result"] for item in history if item["id"] == analysis_id), None)
 
     if not analysis_data:
@@ -216,6 +256,9 @@ async def generate_history_pdf(
                 "Content-Disposition": f"attachment; filename=ats_report_{analysis_id}.pdf"
             }
         )
-    except Exception as e:
-        logger.error(f'Failed to generate PDF for history: {e}')
-        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {e}")
+    except ImportError as exc:
+        logger.warning("PDF generation is unavailable (%s)", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="PDF report generation is unavailable on this system.") from exc
+    except Exception as exc:
+        logger.error("Failed to generate history PDF (%s)", type(exc).__name__)
+        raise HTTPException(status_code=500, detail="Failed to generate PDF report.") from exc

@@ -197,8 +197,7 @@ def extract_text_from_docx(file_data: bytes) -> str:
 def extract_text_from_doc(file_data: bytes) -> str:
     raise FileParsingError(
         'Legacy .doc format is not supported. '
-        'Please convert your document to .docx or .pdf and try again. '
-        'You can convert using Microsoft Word, Google Docs, or online tools.'
+        'Please convert your document to .docx or .pdf using a trusted local editor.'
     )
 
 def extract_text(file_data:bytes, file_type:str)->str:
@@ -216,13 +215,13 @@ def extract_text(file_data:bytes, file_type:str)->str:
         )
     
 def parse_resume_file(file_data: bytes, filename:str)->Tuple[str, dict]:
-    log_info(f'parsing file :{filename}', context='parse_Resume_file')
+    log_info('Parsing uploaded resume', context='parse_Resume_file')
 
     #phase01:validate file
     try:
         is_valid, error_msg, file_type=validate_file(file_data, filename)
         if not is_valid:
-            log_warning(f'valiudation failed for file {filename}', context='parse_resume_file')
+            log_warning('Resume validation failed', context='parse_resume_file')
             raise FileValidationError(error_msg)
     
     except FileValidationError as e:

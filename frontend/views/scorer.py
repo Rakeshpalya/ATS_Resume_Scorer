@@ -71,8 +71,8 @@ def _render_upload_area(analysis_mode: str):
         st.markdown("### 📄 Upload Resume")
         resume_file = st.file_uploader(
             "Choose your resume file",
-            type=["pdf", "doc", "docx"],
-            help="Supported: PDF, DOC, DOCX (max 5 MB)",
+            type=["pdf", "docx"],
+            help="Supported: PDF and DOCX (max 5 MB)",
             key="resume_upload",
         )
         if resume_file:

@@ -2,26 +2,31 @@ import logging
 import httpx
 import json
 from datetime import datetime, timezone
-from typing import List, Optional, Dict
+from typing import List, Dict
 
 logger = logging.getLogger('ats_resume_scorer')
 
-from backend.core.config import SUPABASE_URL, SUPABASE_KEY
+from backend.core.config import SUPABASE_URL, SUPABASE_ANON_KEY
 
-def _get_headers():
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        return None
+def _get_headers(access_token: str) -> dict[str, str]:
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise RuntimeError("Supabase database access is not configured")
+    if not access_token:
+        raise RuntimeError("An authenticated access token is required for database access")
     return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
 
-async def save_analysis(user_id: str, filename: str, analysis_result: Dict) -> Optional[str]:
-    headers = _get_headers()
-    if not headers:
-        return None
+async def save_analysis(
+    user_id: str,
+    filename: str,
+    analysis_result: Dict,
+    access_token: str,
+) -> str:
+    headers = _get_headers(access_token)
 
     def _json_default(o):
         if hasattr(o, 'model_dump'):
@@ -47,18 +52,17 @@ async def save_analysis(user_id: str, filename: str, analysis_result: Dict) -> O
             response.raise_for_status()
             data = response.json()
             if data and len(data) > 0:
-                inserted_id = str(data[0].get("id"))
-                logger.info(f"Saved analysis for user {user_id}: {inserted_id}")
-                return inserted_id
-            return None
+                inserted_id = data[0].get("id")
+                if inserted_id is None:
+                    raise RuntimeError("Supabase insert response did not include an analysis ID")
+                return str(inserted_id)
+            raise RuntimeError("Supabase insert response did not include the inserted analysis")
     except Exception as exc:
-        logger.error(f"Failed to save analysis to Supabase: {exc}")
-        return None
+        logger.error("Failed to save analysis to Supabase (%s)", type(exc).__name__)
+        raise RuntimeError("Could not save analysis to Supabase") from exc
 
-async def get_user_history(user_id: str) -> List[Dict]:
-    headers = _get_headers()
-    if not headers:
-        return []
+async def get_user_history(user_id: str, access_token: str) -> List[Dict]:
+    headers = _get_headers(access_token)
 
     url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/analyses"
     
@@ -91,13 +95,15 @@ async def get_user_history(user_id: str) -> List[Dict]:
                 })
             return results
     except Exception as exc:
-        logger.error(f"Failed to fetch history from Supabase: {exc}")
-        return []
+        logger.error("Failed to fetch history from Supabase (%s)", type(exc).__name__)
+        raise RuntimeError("Could not fetch history from Supabase") from exc
 
-async def delete_analysis(analysis_id: str, user_id: str) -> bool:
-    headers = _get_headers()
-    if not headers:
-        return False
+async def delete_analysis(
+    analysis_id: str,
+    user_id: str,
+    access_token: str,
+) -> bool:
+    headers = _get_headers(access_token)
 
     url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/analyses"
     
@@ -112,7 +118,8 @@ async def delete_analysis(analysis_id: str, user_id: str) -> bool:
                 }
             )
             response.raise_for_status()
-            return True
+            deleted = response.json()
+            return bool(deleted)
     except Exception as exc:
-        logger.error(f"Failed to delete analysis {analysis_id}: {exc}")
-        return False
+        logger.error("Failed to delete analysis from Supabase (%s)", type(exc).__name__)
+        raise RuntimeError("Could not delete analysis from Supabase") from exc

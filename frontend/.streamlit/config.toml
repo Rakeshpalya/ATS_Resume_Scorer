@@ -6,7 +6,7 @@ textColor = "#1E293B"
 font = "sans serif"
 
 [server]
-maxUploadSize = 10
+maxUploadSize = 5
 enableXsrfProtection = false
 enableCORS = false
 headless = true

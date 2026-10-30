@@ -67,10 +67,10 @@ def render():
     
     with col3:
         st.markdown("""
-        ### 🔒 Privacy First
-        All analysis runs locally with no external API calls. Your resume data never leaves your system.
+        ### 🔐 Data & Privacy
+        Resume and job description text is sent to Groq for extraction. If you sign in and history storage is configured, analysis results are saved to Supabase.
         
-        **100% Private & Secure**
+        Local NLP models are used for semantic matching.
         """)
     
     st.markdown("---")
@@ -83,13 +83,13 @@ def render():
     with col1:
         st.markdown("""
         #### 1️⃣ Upload Your Resume
-        Support for PDF, DOC, and DOCX formats
+        Support for PDF and DOCX formats (up to 5 MB)
         """)
     
     with col2:
         st.markdown("""
         #### 2️⃣ AI Analysis
-        Our local AI models analyze your resume across multiple dimensions
+        Local NLP and embeddings are combined with Groq-based resume parsing.
         """)
     
     with col3:

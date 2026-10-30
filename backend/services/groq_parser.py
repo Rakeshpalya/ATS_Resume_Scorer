@@ -104,7 +104,8 @@ def _try_parse_json(text: str) -> dict | None:
         cleaned = cleaned.strip()
 
     try:
-        return json.loads(cleaned)
+        result = json.loads(cleaned)
+        return result if isinstance(result, dict) else None
     except json.JSONDecodeError:
         return None
     
@@ -115,7 +116,7 @@ def parse_resume(raw_text: str)->Dict:
     raw_response=_call_groq(client, RESUME_SYSTEM_PROMPT, prompt)
     result=_try_parse_json(raw_response)
 
-    if result is None:
+    if result is not None:
         return _validate_resume_result(result)
     
 
@@ -130,9 +131,7 @@ def parse_resume(raw_text: str)->Dict:
     if result is not None:
         return _validate_resume_result(result)
 
-    raise ValueError(
-        f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
-    )
+    raise ValueError("Groq returned an unparseable resume response after retry.")
     
 JD_SYSTEM_PROMPT = (
     "You are a job description parser. Extract information and "
@@ -180,9 +179,7 @@ def parse_job_description(raw_text: str) -> Dict:
     if result is not None:
         return _validate_jd_result(result)
 
-    raise ValueError(
-        f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
-    )
+    raise ValueError("Groq returned an unparseable job description response after retry.")
 
 #it will make sure, that the parse json has all the valid fields we expect
 def _validate_jd_result(result: dict) -> dict:
@@ -257,5 +254,4 @@ def _validate_resume_result(result: dict) -> dict:
         proj.setdefault("technologies", [])
 
     return result
-
 

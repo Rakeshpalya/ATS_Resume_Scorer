@@ -4,14 +4,16 @@ import logging
 try:
     from weasyprint import HTML, CSS
     WEASYPRINT_INSTALLED = True
-except ImportError:
+except (ImportError, OSError):
     WEASYPRINT_INSTALLED = False
 
 logger = logging.getLogger('ats_resume_scorer')
 
 def generate_combined_pdf(html_docs: dict[str, str]) -> bytes:
     if not WEASYPRINT_INSTALLED:
-        raise ImportError("WeasyPrint is not installed. PDF generation unavailable.")
+        raise ImportError(
+            "WeasyPrint or its required native libraries are unavailable. PDF generation cannot run."
+        )
         
     documents = []
     

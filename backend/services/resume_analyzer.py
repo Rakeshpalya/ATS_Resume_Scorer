@@ -22,9 +22,6 @@ def analyze_full_resume(
     import logging
     logger = logging.getLogger('ats_resume_scorer')
     parsed_resume = parse_resume(resume_text)
-    logger.info(f"Groq parsed summary: {parsed_resume.get('professional_summary', '')[:100]!r}")
-    logger.info(f"Groq parsed skills count: {len(parsed_resume.get('skills', []))}")
-    logger.info(f"Groq parsed experience count: {len(parsed_resume.get('experience', []))}")
 
     skills          = parsed_resume.get('skills', [])
     projects        = parsed_resume.get('projects', [])

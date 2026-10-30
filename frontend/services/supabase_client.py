@@ -1,5 +1,7 @@
+import io
 import os
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict
 import streamlit as st
@@ -7,17 +9,40 @@ from supabase import Client, create_client
 
 logger = logging.getLogger('ats_resume_scorer')
 
+_PUBLIC_ENV_KEYS = ('SUPABASE_URL', 'SUPABASE_ANON_KEY', 'AUTH_REDIRECT_URL')
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parents[2] / '.env')
-except ImportError:
-    pass
+
+def _load_public_dotenv(path: Path) -> Dict[str, str]:
+    try:
+        from dotenv import dotenv_values
+    except ImportError:
+        return {}
+
+    allowed = set(_PUBLIC_ENV_KEYS)
+    public_lines = []
+    try:
+        with path.open(encoding='utf-8') as env_file:
+            for line in env_file:
+                match = re.match(r'\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=', line)
+                if match and match.group(1) in allowed:
+                    public_lines.append(line)
+    except FileNotFoundError:
+        return {}
+
+    parsed = dotenv_values(stream=io.StringIO(''.join(public_lines)))
+    return {key: parsed.get(key, '') or '' for key in _PUBLIC_ENV_KEYS}
+
+
+_LOCAL_PUBLIC_CONFIG = _load_public_dotenv(
+    Path(__file__).resolve().parents[2] / '.env'
+)
 
 
 def _secret(key: str, section: str = 'supabase') -> str:
-    """Read from env first, then fall back to st.secrets[section][key]."""
+    """Read public frontend config without parsing private root .env entries."""
     val = os.getenv(key, '')
+    if not val:
+        val = _LOCAL_PUBLIC_CONFIG.get(key, '')
     if val:
         return val
     try:
@@ -30,7 +55,7 @@ SUPABASE_URL = _secret('SUPABASE_URL')
 SUPABASE_ANON_KEY = _secret('SUPABASE_ANON_KEY')
 
 OAUTH_REDIRECT_URL = (
-    os.getenv('AUTH_REDIRECT_URL')
+    _secret('AUTH_REDIRECT_URL')
     or _secret('redirect_uri', 'google_oauth')
     or 'http://localhost:8501'
 )
@@ -71,7 +96,7 @@ def sign_in_with_password(email: str, password: str) -> Dict[str, Any]:
             return {'error': 'Invalid credentials'}
         return _session_dict(resp.session, resp.user)
     except Exception as exc:
-        logger.warning(f'sign_in_with_password failed: {exc}')
+        logger.warning("sign_in_with_password failed (%s)", type(exc).__name__)
         return {'error': _humanize(exc)}
 
 
@@ -87,7 +112,7 @@ def sign_up_with_password(email: str, password: str) -> Dict[str, Any]:
             return {'pending_confirmation': True, 'email': email}
         return {'error': 'Sign-up failed'}
     except Exception as exc:
-        logger.warning(f'sign_up failed: {exc}')
+        logger.warning("sign_up failed (%s)", type(exc).__name__)
         return {'error': _humanize(exc)}
 
 
@@ -102,7 +127,7 @@ def google_oauth_url() -> Dict[str, Any]:
         })
         return {'url': resp.url}
     except Exception as exc:
-        logger.warning(f'oauth url generation failed: {exc}')
+        logger.warning("oauth url generation failed (%s)", type(exc).__name__)
         return {'error': _humanize(exc)}
 
 
@@ -124,7 +149,7 @@ def exchange_code_for_session(auth_code: str) -> Dict[str, Any]:
             return {'error': 'OAuth exchange returned no session'}
         return _session_dict(resp.session, resp.user)
     except Exception as exc:
-        logger.warning(f'exchange_code_for_session failed: {exc}')
+        logger.warning("exchange_code_for_session failed (%s)", type(exc).__name__)
         return {'error': _humanize(exc)}
 
 
@@ -134,7 +159,7 @@ def sign_out() -> None:
     try:
         get_client().auth.sign_out()
     except Exception as exc:
-        logger.warning(f'sign_out failed: {exc}')
+        logger.warning("sign_out failed (%s)", type(exc).__name__)
 
 
 def _humanize(exc: Exception) -> str:
@@ -146,4 +171,4 @@ def _humanize(exc: Exception) -> str:
         return 'An account with this email already exists — try signing in'
     if 'password should be at least' in msg.lower():
         return 'Password too short (Supabase default is 6 characters)'
-    return msg
+    return 'Authentication request failed. Please try again.'
