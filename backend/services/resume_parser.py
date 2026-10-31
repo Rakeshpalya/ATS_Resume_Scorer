@@ -12,8 +12,7 @@ from backend.utils.file_utils import(
     FileUploadError, 
     log_error, 
     log_warning, 
-    log_info, 
-    with_fallback
+    log_info,
 )
 
 from backend.core.config import (
@@ -128,19 +127,23 @@ def _extract_pdf_with_pypdf2(file_data: bytes) -> str:
 
 def extract_text_from_pdf(file_data: bytes) -> str:
     try: 
-        result, used_fallback=with_fallback(
-        _extract_pdf_with_pdfplumber, 
-        _extract_pdf_with_pypdf2, 
-        file_data, 
-        log_fallback=True
-    )
-    
+        try:
+            result = _extract_pdf_with_pdfplumber(file_data)
+            used_fallback = False
+        except Exception as primary_error:
+            log_warning(
+                f'pdfplumber extraction failed ({type(primary_error).__name__}); trying PyPDF2',
+                context='resume_parser',
+            )
+            result = _extract_pdf_with_pypdf2(file_data)
+            used_fallback = True
+
         if used_fallback:
             log_info('PDF EXTRACTION succeded using the PyPDF2 fallback', context='resume_parser')
         return result
         
     except Exception as e:
-        log_error(e, context='extract_text_from_pdf')
+        log_error(Exception(type(e).__name__), context='extract_text_from_pdf')
         raise FileParsingError(
             'Failed to extract text from PDF using both pdfplumber and PyPDF2. '
             'The PDF may be corrupted, password-protected, or contain only scanned images. '
@@ -237,7 +240,7 @@ def parse_resume_file(file_data: bytes, filename:str)->Tuple[str, dict]:
 
     try:
         text = extract_text(file_data, file_type)
-        log_info(f'Extracted {len(text)} chars from {filename}', context='parse_resume_file')
+        log_info(f'Extracted {len(text)} chars from uploaded {file_type}', context='parse_resume_file')
 
     except FileParsingError:
         raise   # Re-raise unchanged

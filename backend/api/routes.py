@@ -53,13 +53,13 @@ async def analyze_resume(
     except HTTPException:
         raise
     except (FileParsingError, FileValidationError) as exc:
-        logger.warning("Resume processing rejected (%s)", type(exc).__name__)
+        logger.exception("Resume processing rejected (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=422,
             detail=str(exc),
         ) from exc
     except Exception as exc:
-        logger.error("Resume processing failed (%s)", type(exc).__name__)
+        logger.exception("Resume processing failed (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=422,
             detail='Could not read or parse the resume. Upload a valid PDF or DOCX file.',
@@ -67,6 +67,7 @@ async def analyze_resume(
 
     #Full Analysis Pipeline 
     try:
+        from backend.services.groq_parser import GroqServiceError
         from backend.services.resume_analyzer import analyze_full_resume
         
         result = analyze_full_resume(
@@ -75,8 +76,14 @@ async def analyze_resume(
             embedder=embedder,
             job_description=job_description
         )
+    except GroqServiceError as exc:
+        logger.exception("Resume analysis provider failure (%s)", exc.category)
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.user_message,
+        ) from exc
     except Exception as exc:
-        logger.error("Full analysis pipeline failed (%s)", type(exc).__name__)
+        logger.exception("Full analysis pipeline failed (%s)", type(exc).__name__)
         raise HTTPException(
             status_code=502,
             detail='Resume analysis failed while processing the document. Please retry.',
@@ -160,14 +167,20 @@ async def get_history(
     authenticated_user: AuthenticatedUser = Depends(get_authenticated_user),
 ):
     """Return the signed-in user's past analyses (identity comes from the JWT)."""
-    from backend.database.supabase_db import get_user_history
+    from backend.database.supabase_db import SupabaseDatabaseError, get_user_history
     try:
         return await get_user_history(
             authenticated_user.user_id,
             authenticated_user.access_token,
         )
+    except SupabaseDatabaseError as exc:
+        logger.warning("History fetch unavailable (%s)", exc.category)
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.user_message,
+        ) from exc
     except Exception as exc:
-        logger.error("History fetch failed (%s)", type(exc).__name__)
+        logger.exception("History fetch failed (%s)", type(exc).__name__)
         raise HTTPException(status_code=500, detail='Could not load analysis history.') from exc
 
 

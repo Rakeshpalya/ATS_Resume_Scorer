@@ -3,14 +3,31 @@ import json
 import logging
 from typing import Dict
 
-from groq import Groq
+from groq import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    Groq,
+    NotFoundError,
+    RateLimitError,
+)
 
 logger=logging.getLogger('ats_resume_scorer')
 
 
-GROQ_MODEL='llama-3.3-70b-versatile'
+GROQ_MODEL='openai/gpt-oss-120b'
 
 _client=None
+
+
+class GroqServiceError(Exception):
+    def __init__(self, category: str, status_code: int, user_message: str):
+        super().__init__(user_message)
+        self.category = category
+        self.status_code = status_code
+        self.user_message = user_message
+
 
 def _get_client()->Groq:
     global _client
@@ -18,7 +35,11 @@ def _get_client()->Groq:
         api_key=os.getenv('GROQ_API_KEY')
 
         if not api_key:
-            raise ValueError("GROQ_API_KEY environment variable not set")
+            raise GroqServiceError(
+                "configuration",
+                503,
+                "AI analysis is not configured. Please contact the application administrator.",
+            )
         _client=Groq(api_key=api_key)
     return _client
 
@@ -76,18 +97,60 @@ Resume Text:
 {raw_text}"""
 
 def _call_groq(client:Groq, system_prompt:str, user_prompt:str)->str:
+    try:
+        response=client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_prompt}
+            ],
+            temperature=0.0,
+            max_tokens=4096
+        )
+    except APITimeoutError as exc:
+        logger.warning("Groq request timed out")
+        raise GroqServiceError(
+            "timeout", 504, "AI analysis timed out. Please try again."
+        ) from exc
+    except RateLimitError as exc:
+        logger.warning("Groq rate limit reached (HTTP %s)", exc.status_code)
+        raise GroqServiceError(
+            "rate_limit", 503, "AI analysis is temporarily busy. Please try again shortly."
+        ) from exc
+    except AuthenticationError as exc:
+        logger.error("Groq authentication failed (HTTP %s)", exc.status_code)
+        raise GroqServiceError(
+            "configuration", 503, "AI analysis is unavailable due to a server configuration issue."
+        ) from exc
+    except NotFoundError as exc:
+        logger.error("Groq model was not found (HTTP %s)", exc.status_code)
+        raise GroqServiceError(
+            "model_unavailable", 503, "The configured AI model is unavailable. Please contact the application administrator."
+        ) from exc
+    except APIConnectionError as exc:
+        logger.warning("Could not connect to Groq")
+        raise GroqServiceError(
+            "connection", 503, "AI analysis is temporarily unreachable. Please try again."
+        ) from exc
+    except APIStatusError as exc:
+        logger.error("Groq request failed (HTTP %s)", exc.status_code)
+        raise GroqServiceError(
+            "provider_error", 502, "The AI service could not process the analysis. Please try again."
+        ) from exc
 
-    response=client.chat.completions.create(
-        model=GROQ_MODEL, 
-        messages=[
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': user_prompt}
-        ],
-        temperature=0.0,
-        max_tokens=4096
-    )
-
-    return response.choices[0].message.content.strip()
+    try:
+        content = response.choices[0].message.content
+    except (AttributeError, IndexError, TypeError) as exc:
+        logger.warning("Groq returned an invalid response structure")
+        raise GroqServiceError(
+            "invalid_response", 502, "The AI service returned an invalid response. Please try again."
+        ) from exc
+    if not isinstance(content, str) or not content.strip():
+        logger.warning("Groq returned an empty response")
+        raise GroqServiceError(
+            "invalid_response", 502, "The AI service returned an empty response. Please try again."
+        )
+    return content.strip()
 
 def _try_parse_json(text: str) -> dict | None:
 
@@ -131,7 +194,11 @@ def parse_resume(raw_text: str)->Dict:
     if result is not None:
         return _validate_resume_result(result)
 
-    raise ValueError("Groq returned an unparseable resume response after retry.")
+    raise GroqServiceError(
+        "invalid_response",
+        502,
+        "The AI service returned unreadable resume data. Please try again.",
+    )
     
 JD_SYSTEM_PROMPT = (
     "You are a job description parser. Extract information and "
@@ -179,7 +246,11 @@ def parse_job_description(raw_text: str) -> Dict:
     if result is not None:
         return _validate_jd_result(result)
 
-    raise ValueError("Groq returned an unparseable job description response after retry.")
+    raise GroqServiceError(
+        "invalid_response",
+        502,
+        "The AI service returned unreadable job description data. Please try again.",
+    )
 
 #it will make sure, that the parse json has all the valid fields we expect
 def _validate_jd_result(result: dict) -> dict:
@@ -254,4 +325,3 @@ def _validate_resume_result(result: dict) -> dict:
         proj.setdefault("technologies", [])
 
     return result
-

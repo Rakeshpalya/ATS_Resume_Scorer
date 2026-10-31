@@ -67,6 +67,18 @@ def test_hs256_expired_token_is_rejected(configured_hs256_auth):
         auth._verify_token(_token(expiration=int(time.time()) - 1))
 
 
+def test_expired_history_access_token_returns_401(configured_hs256_auth):
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer",
+        credentials=_token(expiration=int(time.time()) - 1),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        auth.get_authenticated_user(credentials)
+
+    assert error.value.status_code == 401
+
+
 def test_authenticated_user_context_preserves_verified_access_token(configured_hs256_auth):
     token = _token()
     credentials = HTTPAuthorizationCredentials(
