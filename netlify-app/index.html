@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATS Scorer AI — Beat the ATS & Land More Interviews</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .gradient-text {
+      background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-glow {
+      background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+  <!-- Navbar -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="showView('home')">
+        <span class="text-2xl">🎯</span>
+        <span class="font-extrabold text-xl tracking-tight gradient-text">ATS Scorer AI</span>
+        <span id="apiStatusBadge" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Backend Ready
+        </span>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600">
+        <button onclick="showView('home')" class="hover:text-blue-600 transition" id="navHome">Home</button>
+        <button onclick="showView('scorer')" class="hover:text-blue-600 transition" id="navScorer">ATS Scorer</button>
+        <button onclick="showView('history')" class="hover:text-blue-600 transition" id="navHistory">History</button>
+        <button onclick="showView('resources')" class="hover:text-blue-600 transition" id="navResources">Resources</button>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <!-- Auth state -->
+        <div id="unauthControls" class="flex items-center gap-2">
+          <button onclick="openAuthModal('signin')" class="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-blue-600 transition">Sign In</button>
+          <button onclick="openAuthModal('signup')" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition">Create Account</button>
+        </div>
+
+        <div id="authControls" class="hidden flex items-center gap-3">
+          <div class="text-right hidden sm:block">
+            <div id="userEmailDisplay" class="text-xs font-semibold text-slate-800"></div>
+            <div class="text-[10px] text-emerald-600 font-medium">Supabase Connected</div>
+          </div>
+          <button onclick="signOut()" class="px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-md border border-rose-200 transition">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="flex-1">
+
+    <!-- 1. HOME VIEW -->
+    <section id="viewHome" class="py-12 hero-glow">
+      <div class="max-w-5xl mx-auto px-4 text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 uppercase tracking-wider mb-6">
+          ✨ AI-Powered Career Intelligence
+        </div>
+        <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-slate-900 leading-tight mb-6">
+          Beat the ATS. <br class="hidden sm:inline">
+          <span class="gradient-text">Land More Tech Interviews.</span>
+        </h1>
+        <p class="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto mb-8">
+          Enterprise-grade resume scoring powered by Groq LLMs and Sentence Transformers. Get diagnostic feedback, keyword gap analysis, and executive PDF reports in seconds.
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          <button onclick="showView('scorer')" class="w-full sm:w-auto px-8 py-3.5 text-base font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-500/25 transition">
+            🚀 Start Free Resume Analysis
+          </button>
+          <button onclick="showView('resources')" class="w-full sm:w-auto px-6 py-3.5 text-base font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-sm transition">
+            📖 View ATS Checklist & Tips
+          </button>
+        </div>
+
+        <!-- 3 Feature Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition">
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl mb-4">⚡</div>
+            <h3 class="font-bold text-lg text-slate-900 mb-2">Groq LLM Intelligence</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Sub-second structured resume extraction using Llama-3 / GPT-OSS models without hallucination.
+            </p>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl mb-4">🧠</div>
+            <h3 class="font-bold text-lg text-slate-900 mb-2">Semantic Skill Matching</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Sentence Transformers verify listed skills against real project descriptions and experience evidence.
+            </p>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl mb-4">🔒</div>
+            <h3 class="font-bold text-lg text-slate-900 mb-2">Supabase Cloud History</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Sign in with Google OAuth or Email to persist scan history with strict Row Level Security (RLS).
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. SCORER VIEW -->
+    <section id="viewScorer" class="hidden py-8 max-w-5xl mx-auto px-4">
+      <div class="mb-8">
+        <h2 class="text-3xl font-extrabold text-slate-900">🎯 AI ATS Resume Scorer</h2>
+        <p class="text-slate-600">Upload your resume and optional job description for full diagnostic ATS feedback.</p>
+      </div>
+
+      <!-- Upload Form -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Resume Upload -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <label class="block text-sm font-bold text-slate-800 mb-2">1. Upload Resume (PDF or DOCX)</label>
+          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-8 text-center cursor-pointer transition bg-slate-50 hover:bg-blue-50/50">
+            <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-3"></i>
+            <p class="text-sm font-semibold text-slate-700" id="fileLabel">Drag & drop resume or click to browse</p>
+            <p class="text-xs text-slate-400 mt-1">Supports .pdf & .docx up to 5 MB</p>
+            <input type="file" id="resumeFileInput" accept=".pdf,.docx" class="hidden">
+          </div>
+        </div>
+
+        <!-- JD Upload/Paste -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <label class="block text-sm font-bold text-slate-800 mb-2">2. Target Job Description (Optional)</label>
+          <textarea id="jdTextInput" rows="5" class="w-full text-sm p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Paste the target job description here to check keyword match percentage and skill gap analysis..."></textarea>
+        </div>
+      </div>
+
+      <div class="text-center mb-8">
+        <button id="analyzeBtn" onclick="runAnalysis()" class="w-full md:w-auto px-10 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2 mx-auto">
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
+          <span>Analyze Resume with AI</span>
+        </button>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div id="loadingIndicator" class="hidden text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-4"></div>
+        <p class="text-base font-bold text-slate-800">Analyzing resume with Groq LLM & Sentence Transformers...</p>
+        <p class="text-sm text-slate-500">Checking formatting, keywords, metrics, and evidence...</p>
+      </div>
+
+      <!-- Dashboard Results -->
+      <div id="resultsDashboard" class="hidden space-y-6">
+        <!-- Score Card -->
+        <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            <div class="text-center md:border-r border-slate-200 pr-6">
+              <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Overall ATS Score</div>
+              <div id="scoreNumber" class="text-6xl font-black text-blue-600">85</div>
+              <div id="scoreInterpretation" class="text-sm font-bold text-slate-800 mt-2">Strong Match</div>
+            </div>
+            <div class="md:col-span-2 space-y-3">
+              <h4 class="text-sm font-bold text-slate-700">5-Dimension Breakdown</h4>
+              <div id="dimensionBars" class="space-y-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strengths & Critical Issues -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="text-base font-bold text-emerald-800 flex items-center gap-2 mb-4">
+              <i class="fa-solid fa-circle-check text-emerald-600"></i> Key Strengths
+            </h3>
+            <ul id="strengthsList" class="space-y-2 text-sm text-slate-700"></ul>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="text-base font-bold text-rose-800 flex items-center gap-2 mb-4">
+              <i class="fa-solid fa-triangle-exclamation text-rose-600"></i> Critical Issues
+            </h3>
+            <ul id="criticalList" class="space-y-2 text-sm text-slate-700"></ul>
+          </div>
+        </div>
+
+        <!-- JD Comparison -->
+        <div id="jdCompSection" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-bullseye text-blue-600"></i> Target Job Description Alignment
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <div class="text-2xl font-black text-blue-600" id="jdMatchPct">0%</div>
+              <div class="text-xs font-semibold text-slate-500 uppercase mt-1">Keyword Match Rate</div>
+            </div>
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
+              <div class="text-2xl font-black text-emerald-600" id="jdSemSim">0%</div>
+              <div class="text-xs font-semibold text-slate-500 uppercase mt-1">Semantic Similarity</div>
+            </div>
+          </div>
+          <div class="mb-4">
+            <div class="text-xs font-bold text-emerald-700 uppercase mb-2">Matched Keywords:</div>
+            <div id="matchedPills" class="flex flex-wrap gap-1.5"></div>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-rose-700 uppercase mb-2">Missing Keywords:</div>
+            <div id="missingPills" class="flex flex-wrap gap-1.5"></div>
+          </div>
+        </div>
+
+        <!-- Download Actions -->
+        <div class="bg-slate-100 p-6 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h4 class="font-bold text-slate-800">Export Diagnostic Report</h4>
+            <p class="text-xs text-slate-500">Download the full analysis as a formatted document or summary text.</p>
+          </div>
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <button onclick="downloadReport('txt')" class="flex-1 sm:flex-none px-4 py-2.5 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl shadow-sm transition">
+              <i class="fa-regular fa-file-lines mr-1.5"></i> Download Text (.txt)
+            </button>
+            <button onclick="downloadReport('pdf')" class="flex-1 sm:flex-none px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md transition">
+              <i class="fa-regular fa-file-pdf mr-1.5"></i> Download PDF Report
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. HISTORY VIEW -->
+    <section id="viewHistory" class="hidden py-8 max-w-5xl mx-auto px-4">
+      <div class="mb-8">
+        <h2 class="text-3xl font-extrabold text-slate-900">📊 Analysis History</h2>
+        <p class="text-slate-600">Review past resume scans stored securely in your Supabase database.</p>
+      </div>
+      <div id="historyContent" class="space-y-4">
+        <div class="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500">
+          Please sign in to view your saved resume scan history.
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. RESOURCES VIEW -->
+    <section id="viewResources" class="hidden py-8 max-w-5xl mx-auto px-4">
+      <div class="mb-8">
+        <h2 class="text-3xl font-extrabold text-slate-900">📚 ATS Resources & Cheat Sheets</h2>
+        <p class="text-slate-600">Proven frameworks and power verbs to maximize recruiter callbacks.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 class="font-bold text-lg text-slate-900 mb-3 flex items-center gap-2">
+            <span>🚀</span> Google 'XYZ' Formula
+          </h3>
+          <p class="text-sm text-slate-600 mb-4">Former Google VP Laszlo Bock recommends phrasing bullet points as:</p>
+          <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 font-semibold text-sm mb-4">
+            "Accomplished [X] as measured by [Y], by doing [Z]"
+          </div>
+          <p class="text-xs text-slate-500">Example: "Reduced API response latency by 42% (Y) across 15 microservices (X) by implementing FastAPI async endpoints with Redis caching (Z)."</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <h3 class="font-bold text-lg text-slate-900 mb-3 flex items-center gap-2">
+            <span>⚡</span> Power Action Verbs
+          </h3>
+          <div class="text-sm space-y-2 text-slate-700">
+            <div><strong>Technical:</strong> Architected, Engineered, Deployed, Automated, Scaled</div>
+            <div><strong>Optimization:</strong> Accelerated, Streamlined, Reduced, Boosted, Consolidated</div>
+            <div><strong>Leadership:</strong> Spearheaded, Orchestrated, Mentored, Delivered, Executed</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Auth Modal -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 relative">
+      <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="text-2xl font-extrabold text-slate-900 mb-2" id="authModalTitle">Sign In</h3>
+      <p class="text-sm text-slate-500 mb-6">Connect with Supabase to save and sync your resume analyses.</p>
+
+      <!-- Google Sign In Button -->
+      <button onclick="signInWithGoogle()" class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm border border-slate-300 rounded-xl shadow-sm transition mb-4">
+        <svg class="w-5 h-5" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.347 2.825.957 4.039l3.007-2.332z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+
+      <div class="relative flex py-2 items-center mb-4">
+        <div class="flex-grow border-t border-slate-200"></div>
+        <span class="flex-shrink mx-4 text-xs font-bold text-slate-400 uppercase">or with email</span>
+        <div class="flex-grow border-t border-slate-200"></div>
+      </div>
+
+      <div id="authAlert" class="hidden mb-4 p-3 rounded-xl text-xs font-semibold"></div>
+
+      <form id="authForm" onsubmit="handleEmailAuth(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Email</label>
+          <input type="email" id="authEmail" required class="w-full text-sm p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="you@example.com">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+          <input type="password" id="authPassword" required minlength="6" class="w-full text-sm p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Min 6 characters">
+        </div>
+        <button type="submit" id="authSubmitBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+          Sign In
+        </button>
+      </form>
+
+      <div class="mt-4 text-center text-xs text-slate-500">
+        <span id="authTogglePrompt">Don't have an account?</span>
+        <button onclick="toggleAuthMode()" id="authToggleBtn" class="font-bold text-blue-600 hover:underline ml-1">Create one</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Client Logic -->
+  <script>
+    // Supabase Configuration
+    const SUPABASE_URL = "https://bznwpadikeerjhkmexwz.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6bndwYWRpa2Vlcmpoa21leHd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwNTU2NDAsImV4cCI6MjA2MzYzMTY0MH0.xGj97W04eZ7QW-iM_C4E3a2cW54XJ2P5A_sQZ7m9T2U";
+    const API_BASE_URL = window.location.origin.includes(":8000") ? window.location.origin : "http://localhost:8000";
+
+    const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    let currentUser = null;
+    let currentAuthToken = null;
+    let authMode = "signin";
+    let selectedFile = null;
+    let latestAnalysis = null;
+
+    // Initialize Auth Session
+    async function initAuth() {
+      if (!supabase) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        currentAuthToken = session.access_token;
+        updateAuthUI();
+      }
+
+      supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+          currentUser = session.user;
+          currentAuthToken = session.access_token;
+        } else {
+          currentUser = null;
+          currentAuthToken = null;
+        }
+        updateAuthUI();
+      });
+    }
+
+    function updateAuthUI() {
+      const unauth = document.getElementById("unauthControls");
+      const auth = document.getElementById("authControls");
+      const emailDisp = document.getElementById("userEmailDisplay");
+
+      if (currentUser) {
+        unauth.classList.add("hidden");
+        auth.classList.remove("hidden");
+        emailDisp.innerText = currentUser.email;
+      } else {
+        unauth.classList.remove("hidden");
+        auth.classList.add("hidden");
+      }
+    }
+
+    // Modal
+    function openAuthModal(mode = "signin") {
+      authMode = mode;
+      document.getElementById("authModal").classList.remove("hidden");
+      document.getElementById("authModalTitle").innerText = mode === "signin" ? "Sign In" : "Create Account";
+      document.getElementById("authSubmitBtn").innerText = mode === "signin" ? "Sign In with Email" : "Create Account";
+      document.getElementById("authTogglePrompt").innerText = mode === "signin" ? "Don't have an account?" : "Already have an account?";
+      document.getElementById("authToggleBtn").innerText = mode === "signin" ? "Create one" : "Sign in";
+      hideAlert();
+    }
+
+    function closeAuthModal() {
+      document.getElementById("authModal").classList.add("hidden");
+    }
+
+    function toggleAuthMode() {
+      openAuthModal(authMode === "signin" ? "signup" : "signin");
+    }
+
+    function showAlert(msg, isError = true) {
+      const el = document.getElementById("authAlert");
+      el.className = isError ? "mb-4 p-3 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200" : "mb-4 p-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+      el.innerText = msg;
+      el.classList.remove("hidden");
+    }
+
+    function hideAlert() {
+      document.getElementById("authAlert").classList.add("hidden");
+    }
+
+    // Google OAuth
+    async function signInWithGoogle() {
+      if (!supabase) {
+        alert("Supabase client is not configured.");
+        return;
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin }
+      });
+      if (error) showAlert(error.message, true);
+    }
+
+    // Email Auth
+    async function handleEmailAuth(e) {
+      e.preventDefault();
+      if (!supabase) return;
+
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+
+      if (authMode === "signup") {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          showAlert(error.message, true);
+        } else {
+          showAlert("Account created! Check your email to confirm registration or sign in.", false);
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          showAlert(error.message, true);
+        } else {
+          currentUser = data.user;
+          currentAuthToken = data.session.access_token;
+          updateAuthUI();
+          closeAuthModal();
+        }
+      }
+    }
+
+    async function signOut() {
+      if (supabase) await supabase.auth.signOut();
+      currentUser = null;
+      currentAuthToken = null;
+      updateAuthUI();
+    }
+
+    // Navigation
+    function showView(view) {
+      ['Home', 'Scorer', 'History', 'Resources'].forEach(v => {
+        document.getElementById(`view${v}`).classList.add("hidden");
+      });
+      document.getElementById(`view${view.charAt(0).toUpperCase() + view.slice(1)}`).classList.remove("hidden");
+      if (view === 'history') loadHistory();
+    }
+
+    // Drag and Drop File Handlers
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("resumeFileInput");
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("border-blue-500", "bg-blue-50"); });
+    dropZone.addEventListener("dragleave", () => { dropZone.classList.remove("border-blue-500", "bg-blue-50"); });
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("border-blue-500", "bg-blue-50");
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file) return;
+      selectedFile = file;
+      document.getElementById("fileLabel").innerHTML = `📄 <strong class="text-blue-600">${file.name}</strong> (${(file.size / (1024*1024)).toFixed(2)} MB)`;
+    }
+
+    // Analysis Call
+    async function runAnalysis() {
+      if (!selectedFile) {
+        alert("Please select a resume file (.pdf or .docx) first!");
+        return;
+      }
+
+      document.getElementById("loadingIndicator").classList.remove("hidden");
+      document.getElementById("resultsDashboard").classList.add("hidden");
+
+      const formData = new FormData();
+      formData.append("resume_file", selectedFile);
+      const jd = document.getElementById("jdTextInput").value.trim();
+      if (jd) formData.append("jd_text", jd);
+
+      const headers = {};
+      if (currentAuthToken) headers["Authorization"] = `Bearer ${currentAuthToken}`;
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/analyze`, {
+          method: "POST",
+          headers,
+          body: formData
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || "Analysis request failed");
+        }
+
+        latestAnalysis = await resp.json();
+        renderDashboard(latestAnalysis);
+      } catch (err) {
+        alert("Analysis error: " + err.message);
+      } finally {
+        document.getElementById("loadingIndicator").classList.add("hidden");
+      }
+    }
+
+    function renderDashboard(data) {
+      const scores = data.scores || {};
+      const score = Math.round(scores.overall_score || 0);
+
+      document.getElementById("scoreNumber").innerText = score;
+      document.getElementById("scoreInterpretation").innerText = scores.interpretation || "Optimal";
+
+      // Color score
+      const numEl = document.getElementById("scoreNumber");
+      numEl.className = "text-6xl font-black " + (score >= 85 ? "text-emerald-600" : (score >= 70 ? "text-blue-600" : (score >= 50 ? "text-amber-600" : "text-rose-600")));
+
+      // Dimension bars
+      const dims = [
+        { name: "Formatting & Layout", val: scores.formatting_score, max: 20 },
+        { name: "Keywords & Terminology", val: scores.keywords_score, max: 25 },
+        { name: "Content & Quantified Metrics", val: scores.content_score, max: 25 },
+        { name: "Skill Cross-Validation", val: scores.skill_validation_score, max: 15 },
+        { name: "ATS Compatibility", val: scores.ats_compatibility_score, max: 15 }
+      ];
+
+      const barContainer = document.getElementById("dimensionBars");
+      barContainer.innerHTML = dims.map(d => `
+        <div>
+          <div class="flex justify-between text-xs font-semibold mb-1">
+            <span>${d.name}</span>
+            <span>${d.val} / ${d.max} pts</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div class="bg-blue-600 h-2 rounded-full" style="width: ${Math.min(100, (d.val / d.max) * 100)}%"></div>
+          </div>
+        </div>
+      `).join("");
+
+      // Strengths & Critical Issues
+      document.getElementById("strengthsList").innerHTML = (data.strengths || []).map(s => `
+        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-emerald-600 mt-0.5"></i> <span>${s}</span></li>
+      `).join("") || '<li class="text-slate-400">No standout strengths detected.</li>';
+
+      document.getElementById("criticalList").innerHTML = (data.critical_issues || []).map(c => `
+        <li class="flex items-start gap-2"><i class="fa-solid fa-xmark text-rose-600 mt-0.5"></i> <span>${c}</span></li>
+      `).join("") || '<li class="text-emerald-600 font-semibold">🎉 No critical blocking issues detected!</li>';
+
+      // JD section
+      const jd = data.jd_comparison;
+      const jdSection = document.getElementById("jdCompSection");
+      if (jd && (jd.matched_keywords?.length || jd.missing_keywords?.length)) {
+        jdSection.classList.remove("hidden");
+        document.getElementById("jdMatchPct").innerText = `${Math.round(jd.match_percentage)}%`;
+        document.getElementById("jdSemSim").innerText = `${Math.round((jd.semantic_similarity || 0) * 100)}%`;
+        document.getElementById("matchedPills").innerHTML = (jd.matched_keywords || []).map(k => `
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">${k}</span>
+        `).join("");
+        document.getElementById("missingPills").innerHTML = (jd.missing_keywords || []).map(k => `
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">${k}</span>
+        `).join("");
+      } else {
+        jdSection.classList.add("hidden");
+      }
+
+      document.getElementById("resultsDashboard").classList.remove("hidden");
+      document.getElementById("resultsDashboard").scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Download reports
+    async function downloadReport(type) {
+      if (!latestAnalysis) return;
+
+      if (type === 'txt') {
+        const text = `ATS RESUME ANALYSIS REPORT\nFile: ${latestAnalysis.filename}\nOverall ATS Score: ${latestAnalysis.scores?.overall_score}/100\nInterpretation: ${latestAnalysis.scores?.interpretation}\n\nSTRENGTHS:\n${(latestAnalysis.strengths||[]).join('\n')}\n\nACTION ITEMS:\n${(latestAnalysis.action_items||[]).join('\n')}`;
+        const blob = new Blob([text], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `ATS_Report_${latestAnalysis.id || 'analysis'}.txt`;
+        a.click();
+      } else {
+        try {
+          const resp = await fetch(`${API_BASE_URL}/api/export-pdf`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(latestAnalysis)
+          });
+          const blob = await resp.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `ATS_Report_${latestAnalysis.id || 'analysis'}.pdf`;
+          a.click();
+        } catch (e) {
+          alert("Error downloading PDF: " + e.message);
+        }
+      }
+    }
+
+    // Load History
+    async function loadHistory() {
+      const container = document.getElementById("historyContent");
+      if (!currentAuthToken) {
+        container.innerHTML = `<div class="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500">Please sign in to view your saved resume scan history.</div>`;
+        return;
+      }
+      try {
+        const resp = await fetch(`${API_BASE_URL}/api/history`, {
+          headers: { 'Authorization': `Bearer ${currentAuthToken}` }
+        });
+        const items = await resp.json();
+        if (!items || !items.length) {
+          container.innerHTML = `<div class="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500">No saved scans found yet. Scan your first resume in the ATS Scorer tab!</div>`;
+          return;
+        }
+        container.innerHTML = items.map(item => `
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <div class="font-bold text-slate-900">${item.filename}</div>
+              <div class="text-xs text-slate-500">Scan date: ${item.created_at ? item.created_at.slice(0, 10) : 'Recent'}</div>
+            </div>
+            <div class="flex items-center gap-4">
+              <span class="text-xl font-black text-blue-600">${Math.round(item.ats_score)}/100</span>
+              <button onclick="deleteHistoryItem('${item.id}')" class="text-xs text-rose-500 hover:text-rose-700 font-semibold">Delete</button>
+            </div>
+          </div>
+        `).join("");
+      } catch (e) {
+        container.innerHTML = `<div class="p-4 bg-rose-50 text-rose-700 rounded-xl">Error loading history: ${e.message}</div>`;
+      }
+    }
+
+    async function deleteHistoryItem(id) {
+      if (!confirm("Are you sure you want to delete this scan?")) return;
+      await fetch(`${API_BASE_URL}/api/analyses/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${currentAuthToken}` }
+      });
+      loadHistory();
+    }
+
+    initAuth();
+  </script>
+</body>
+</html>
