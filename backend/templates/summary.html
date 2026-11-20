@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+  }
+  .header {
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #0f172a;
+    margin: 0;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .score-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .overall-score {
+    font-size: 48px;
+    font-weight: 800;
+    color: #2563eb;
+    margin: 0;
+  }
+  .score-label {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+  }
+  .interpretation {
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-top: 6px;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 6px;
+    margin-top: 20px;
+    margin-bottom: 12px;
+  }
+  table.scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  table.scores-table th {
+    text-align: left;
+    background: #f1f5f9;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #475569;
+    border-bottom: 1px solid #cbd5e1;
+  }
+  table.scores-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-success { background: #dcfce7; color: #166534; }
+  .badge-warning { background: #fef9c3; color: #854d0e; }
+  .badge-danger { background: #fee2e2; color: #991b1b; }
+  ul.list {
+    margin: 0;
+    padding-left: 20px;
+  }
+  ul.list li {
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1 class="title">ATS Resume Analysis Report</h1>
+    <div class="subtitle">Candidate: {{ analysis.parsed_resume.name or 'Candidate' }} | File: {{ analysis.filename }}</div>
+  </div>
+  <div style="text-align: right;">
+    <div style="font-size: 12px; color: #64748b;">Generated: {{ analysis.created_at[:10] if analysis.created_at else 'Today' }}</div>
+  </div>
+</div>
+
+<div class="score-card">
+  <div class="score-label">Overall ATS Compatibility Score</div>
+  <div class="overall-score">{{ analysis.scores.overall_score }} / 100</div>
+  <div class="interpretation">{{ analysis.scores.interpretation }}</div>
+</div>
+
+<div class="section-title">Score Breakdown by Dimension</div>
+<table class="scores-table">
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Max Points</th>
+      <th>Awarded Score</th>
+      <th>Performance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Formatting & Hierarchy</strong></td>
+      <td>{{ analysis.scores.formatting_max }} pts</td>
+      <td>{{ analysis.scores.formatting_score }} pts</td>
+      <td>
+        {% if analysis.scores.formatting_score >= 15 %}
+          <span class="badge badge-success">Optimal</span>
+        {% elif analysis.scores.formatting_score >= 10 %}
+          <span class="badge badge-warning">Moderate</span>
+        {% else %}
+          <span class="badge badge-danger">Needs Work</span>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Keywords & Terminology</strong></td>
+      <td>{{ analysis.scores.keywords_max }} pts</td>
+      <td>{{ analysis.scores.keywords_score }} pts</td>
+      <td>
+        {% if analysis.scores.keywords_score >= 18 %}
+          <span class="badge badge-success">Strong</span>
+        {% elif analysis.scores.keywords_score >= 12 %}
+          <span class="badge badge-warning">Average</span>
+        {% else %}
+          <span class="badge badge-danger">Low Density</span>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Content & Quantified Metrics</strong></td>
+      <td>{{ analysis.scores.content_max }} pts</td>
+      <td>{{ analysis.scores.content_score }} pts</td>
+      <td>
+        {% if analysis.scores.content_score >= 18 %}
+          <span class="badge badge-success">High Impact</span>
+        {% elif analysis.scores.content_score >= 12 %}
+          <span class="badge badge-warning">Moderate</span>
+        {% else %}
+          <span class="badge badge-danger">Lacks Metrics</span>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Skill Validation (Cross-Referenced)</strong></td>
+      <td>{{ analysis.scores.skill_validation_max }} pts</td>
+      <td>{{ analysis.scores.skill_validation_score }} pts</td>
+      <td>
+        {% if analysis.scores.skill_validation_score >= 12 %}
+          <span class="badge badge-success">Well Supported</span>
+        {% else %}
+          <span class="badge badge-warning">Context Gaps</span>
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td><strong>ATS Technical Compatibility</strong></td>
+      <td>{{ analysis.scores.ats_compatibility_max }} pts</td>
+      <td>{{ analysis.scores.ats_compatibility_score }} pts</td>
+      <td>
+        {% if analysis.scores.ats_compatibility_score >= 12 %}
+          <span class="badge badge-success">Clean & Safe</span>
+        {% else %}
+          <span class="badge badge-danger">Parsing Risks</span>
+        {% endif %}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="section-title">Key Strengths</div>
+<ul class="list">
+  {% for strength in analysis.strengths %}
+    <li style="color: #166534;"><strong>✔</strong> {{ strength }}</li>
+  {% endfor %}
+</ul>
+
+{% if analysis.critical_issues %}
+<div class="section-title" style="color: #991b1b;">Critical Issues Detected</div>
+<ul class="list">
+  {% for issue in analysis.critical_issues %}
+    <li style="color: #991b1b;"><strong>✖</strong> {{ issue }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+</body>
+</html>

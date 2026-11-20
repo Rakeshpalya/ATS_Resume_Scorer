@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #0f172a;
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+  }
+  .issue-box {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #ffffff;
+  }
+  .issue-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 14px;
+    color: #0f172a;
+    margin-bottom: 6px;
+  }
+  .issue-meta {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+  }
+  .tag-critical { color: #dc2626; font-weight: bold; }
+  .tag-warning { color: #d97706; font-weight: bold; }
+  .tag-tip { color: #2563eb; font-weight: bold; }
+  .example-box {
+    background: #f1f5f9;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  .before { color: #991b1b; }
+  .after { color: #166534; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="title">Action Items & Diagnostic Fixes</div>
+
+<div style="margin-bottom: 16px;">
+  <strong>Top Priority Checklist:</strong>
+  <ul>
+    {% for item in analysis.action_items %}
+      <li style="font-size: 13px; margin-bottom: 4px;">{{ item }}</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="title" style="font-size: 17px; margin-top: 24px;">Detailed Diagnostic Issues</div>
+
+{% for issue in analysis.detailed_issues %}
+<div class="issue-box">
+  <div class="issue-header">
+    <span>{{ loop.index }}. {{ issue.issue_title }}</span>
+    <span class="{% if issue.severity_level == 'Critical' %}tag-critical{% elif issue.severity_level == 'Warning' %}tag-warning{% else %}tag-tip{% endif %}">
+      [{{ issue.severity_level }} | {{ issue.ats_impact }} Impact]
+    </span>
+  </div>
+  <div class="issue-meta">Where it appears: {{ issue.where_it_appears }}</div>
+  <div style="font-size: 13px; color: #334155; margin-bottom: 6px;">{{ issue.explanation }}</div>
+  <div style="font-size: 13px; color: #1e3a8a;"><strong>How to fix:</strong> {{ issue.how_to_fix }}</div>
+
+  {% if issue.example_improvement %}
+  <div class="example-box">
+    <div class="before"><strong>Before:</strong> {{ issue.example_improvement.before }}</div>
+    <div class="after"><strong>After:</strong> {{ issue.example_improvement.after }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+</body>
+</html>

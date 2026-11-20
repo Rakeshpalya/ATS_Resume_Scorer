@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #0f172a;
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+  }
+  .stats-grid {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .stat-box {
+    flex: 1;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 28px;
+    font-weight: 800;
+    color: #2563eb;
+  }
+  .stat-lbl {
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+  }
+  .pill {
+    display: inline-block;
+    padding: 3px 8px;
+    margin: 2px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-matched { background: #dcfce7; color: #166534; }
+  .pill-missing { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+
+<div class="title">Job Description Comparison & Skills Alignment</div>
+
+{% if analysis.jd_comparison %}
+<div class="stats-grid">
+  <div class="stat-box">
+    <div class="stat-val">{{ analysis.jd_comparison.match_percentage }}%</div>
+    <div class="stat-lbl">Keyword Match Rate</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-val">{{ (analysis.jd_comparison.semantic_similarity * 100)|round }}%</div>
+    <div class="stat-lbl">Semantic Relevance</div>
+  </div>
+</div>
+
+<div style="margin-bottom: 16px;">
+  <strong style="color: #166534;">Matched Target Keywords ({{ analysis.jd_comparison.matched_keywords|length }}):</strong>
+  <div style="margin-top: 6px;">
+    {% for kw in analysis.jd_comparison.matched_keywords %}
+      <span class="pill pill-matched">{{ kw }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div style="margin-bottom: 16px;">
+  <strong style="color: #991b1b;">Missing Target Keywords ({{ analysis.jd_comparison.missing_keywords|length }}):</strong>
+  <div style="margin-top: 6px;">
+    {% for kw in analysis.jd_comparison.missing_keywords %}
+      <span class="pill pill-missing">{{ kw }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+{% if analysis.jd_comparison.skill_gaps %}
+<div style="margin-bottom: 16px;">
+  <strong style="color: #d97706;">Required Role Skill Gaps:</strong>
+  <ul>
+    {% for gap in analysis.jd_comparison.skill_gaps %}
+      <li style="font-size: 13px; color: #b45309;">{{ gap }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% else %}
+<p style="color: #64748b;">No target Job Description was provided for this analysis.</p>
+{% endif %}
+
+</body>
+</html>
